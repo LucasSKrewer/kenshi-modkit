@@ -1,0 +1,17 @@
+# mods gerados pelas ferramentas
+out/
+
+# override local do caminho da instalação (é da máquina, não do projeto)
+kenshi_dir.txt
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# editores / SO
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

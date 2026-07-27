@@ -1,0 +1,3 @@
+# Normaliza fim de linha: LF no repositório, nativo no checkout.
+# Sem isto, quem clonar no Linux/macOS recebe CRLF do Windows no diff.
+* text=auto eol=lf

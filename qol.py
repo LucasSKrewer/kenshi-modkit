@@ -23,6 +23,19 @@ import kenshimod as km
 
 NOME = "Smooth Sands"
 
+# De onde sair o valor de partida dos multiplicadores. Com um overhaul ativo
+# (Genesis), o valor que vale no jogo NÃO é o vanilla: multiplicar o vanilla
+# sobrescreveria o rebalanceamento do overhaul. Então o padrão é ler a ordem de
+# load ativa (data/mods.cfg), menos este próprio mod e menos os que ele
+# substitui -- senão multiplicaríamos valores já multiplicados.
+USAR_ORDEM_ATIVA = True
+SUBSTITUIDOS = [
+    "shops have more items +.mod",
+    "shops have more money.mod",
+    "No Mine Node Cap.mod",
+    "Attack Slots x2.mod",
+]
+
 AJUSTES = {
     # nós de mineração: quanto minério cabe antes de parar de produzir
     "mineracao": {
@@ -37,10 +50,13 @@ AJUSTES = {
         "estoque_mult": 2,       # multiplica a quantidade de itens
         "teto_dinheiro": 500000,
     },
-    # quantos inimigos podem atacar ao mesmo tempo
+    # quantos inimigos podem atacar ao mesmo tempo.
+    # É um MÍNIMO, não um valor absoluto: se a sua ordem de load já dá mais
+    # (o Genesis dá 5), o ajuste não mexe. Ajuste de QoL não pode piorar o que
+    # já está melhor.
     "slots_ataque": {
         "ativo": True,
-        "valor": 2,              # vanilla: 1
+        "minimo": 2,             # vanilla: 1
     },
     # ganho de experiência global
     "treino": {
@@ -54,7 +70,21 @@ AJUSTES = {
 CABECALHO_DESCONHECIDO = 1535115
 
 
-def indexar_base():
+def arquivos_de_partida():
+    """os arquivos cujos valores servem de base para os multiplicadores"""
+    arquivos = list(loc.arquivos_base())
+    if not USAR_ORDEM_ATIVA:
+        return arquivos
+    import conflitos
+    for c in conflitos.ordem_real():
+        nome = os.path.basename(c)
+        if nome == f"{NOME}.mod" or nome in SUBSTITUIDOS:
+            continue
+        arquivos.append(c)
+    return arquivos
+
+
+def indexar_base(arquivos=None):
     """strid -> (registro com os campos MESCLADOS, arquivo de origem)
 
     Mesclar é obrigatório: os arquivos de `data/` se sobrepõem e cada um grava
@@ -64,7 +94,7 @@ def indexar_base():
     campo; aqui é o mesmo.
     """
     idx = {}
-    for c in loc.arquivos_base():
+    for c in (arquivos if arquivos is not None else loc.arquivos_base()):
         arq = os.path.basename(c)
         for rec in km.ler(c)["records"]:
             anterior = idx.get(rec["strid"])
@@ -104,8 +134,18 @@ def modificacao(base_rec):
 
 
 def gerar():
-    idx = indexar_base()
-    print(f"base: {len(idx)} registros")
+    arquivos = arquivos_de_partida()
+    idx = indexar_base(arquivos)
+    print(f"valores de partida: {len(idx)} registros de {len(arquivos)} arquivo(s)")
+    if USAR_ORDEM_ATIVA:
+        print(f"  ordem usada: {', '.join(os.path.basename(a) for a in arquivos)}")
+    idx_vanilla = indexar_base(loc.arquivos_base()) if USAR_ORDEM_ATIVA else idx
+
+    def vanilla(strid, secao, campo):
+        par = idx_vanilla.get(strid)
+        return km.campo(par[0], secao, campo) if par else None
+
+    divergentes, exemplos = 0, []
     registros, relato = [], []
 
     m = AJUSTES["mineracao"]
@@ -118,6 +158,10 @@ def gerar():
                 continue
             for cat, itens in base_rec["extra"]:
                 if km.t(cat) != "produces" or not itens:
+                    continue
+                if itens[0][1] >= m["estoque"]:
+                    relato.append(f"  {km.t(base_rec['name'])}: sua ordem já dá "
+                                  f"{itens[0][1]} — não mexo")
                     continue
                 rec = modificacao(base_rec)
                 rec["extra"] = [(cat, [(alvo, m["estoque"], v1, v2)
@@ -141,6 +185,13 @@ def gerar():
             estoque = km.campo(base_rec, "long", "vendors fill total amount") or 0
             if dinheiro <= 0 and estoque <= 0:
                 continue
+            van = vanilla(base_rec["strid"], "long", "vendor money") or 0
+            if van != dinheiro:
+                divergentes += 1
+                if len(exemplos) < 4:
+                    exemplos.append(f"    {km.t(base_rec['name'])[:26]:<26} "
+                                    f"vanilla {van} -> na sua ordem {dinheiro} "
+                                    f"-> gerado {min(dinheiro * lj['dinheiro_mult'], lj['teto_dinheiro'])}")
             rec = modificacao(base_rec)
             if dinheiro > 0:
                 rec["long"].append((km.b("vendor money"),
@@ -165,8 +216,13 @@ def gerar():
             rec = modificacao(base_rec)
             if sa["ativo"]:
                 atual = km.campo(base_rec, "long", "max num attack slots")
-                rec["long"].append((km.b("max num attack slots"), sa["valor"]))
-                relato.append(f"  slots de ataque: {atual} -> {sa['valor']}")
+                if atual is not None and atual >= sa["minimo"]:
+                    relato.append(f"  slots de ataque: sua ordem já dá {atual} "
+                                  f"(mínimo pedido: {sa['minimo']}) — não mexo")
+                else:
+                    rec["long"].append((km.b("max num attack slots"),
+                                        sa["minimo"]))
+                    relato.append(f"  slots de ataque: {atual} -> {sa['minimo']}")
             if tr["ativo"]:
                 atual = km.campo(base_rec, "float", "exp gain multiplier")
                 if atual is not None:
@@ -206,6 +262,14 @@ def gerar():
     print("\no que muda:")
     for linha in relato[:12]:
         print(linha)
+    if USAR_ORDEM_ATIVA:
+        print(f"\nvalores que a sua ordem de load já tinha mudado em relação ao "
+              f"vanilla: {divergentes}")
+        for e in exemplos:
+            print(e)
+        if not divergentes:
+            print("    (nenhum: nos alvos deste mod, a sua ordem usa os valores "
+                  "vanilla, então calcular sobre a base dava no mesmo)")
 
     relido = km.ler(destino)
     with open(destino, "rb") as f:

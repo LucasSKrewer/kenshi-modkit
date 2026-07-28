@@ -43,6 +43,7 @@ de novo jogo.
 | `dump.py` | `.mod` → texto legível, `--json` (versionável), `--tipos` |
 | `validar.py` | referência pendurada / strid duplicado, resolvendo contra a ordem de load |
 | `conflitos.py` | quais mods brigam pelo mesmo registro e qual valor ganha |
+| `ordem.py` | recomenda ordem de load justificada; `--aplicar` escreve o `mods.cfg` (com backup) |
 | `typecodes.py` | levanta o mapa de typecodes correlacionando registros com o `fcs.def` |
 | `teste_ingame.py` | gera um mod que edita **e** cria registro, para validar no jogo |
 | `pesquisa/` | as sondas da engenharia reversa ([método](pesquisa/LEIA.md)) |

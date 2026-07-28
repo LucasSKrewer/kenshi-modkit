@@ -1,8 +1,8 @@
 # kenshi-modkit
 
 Ler, editar e **gravar** mods do Kenshi (`.mod` / `.base`) por script Python, sem
-abrir o Forgotten Construction Set. Python 3.12, **zero dependências** além da
-biblioteca padrão.
+abrir o Forgotten Construction Set — e ler saves (`.save`, `.zone`, `.platoon`).
+Python 3.12, **zero dependências** além da biblioteca padrão.
 
 Motivo de existir: o FCS é GUI. Com o formato binário mapeado, mod passa a ser
 código — diff legível, edição em massa, geração de variantes e, o que nenhuma
@@ -21,8 +21,9 @@ O formato está documentado em [FORMATO.md](FORMATO.md), incluindo o
 | Kenshi carregar mod gerado por script | ✅ validado in-game (2026-07-27) |
 | Mapa de typecodes | ✅ **70 de 78** com certeza ([TYPECODES.md](TYPECODES.md)) |
 | Detector de conflito | ✅ |
+| Ler saves (filetype 15) | ✅ `.save`, `.zone`, `.platoon` |
 | Criar registro do zero | ❌ depende dos typecodes que faltam |
-| Filetype 15 (saves) | ❌ não implementado |
+| Gravar por cima de save | 🚫 por escolha: leia à vontade, grave só em cópia |
 
 O round-trip byte-idêntico é o critério de verdade do projeto: ler um arquivo e
 regravá-lo tem que produzir exatamente os mesmos bytes. Sem isso, gravar mod por

@@ -6,6 +6,7 @@ nenhum pra ler -- o fcs.def serve pra validar/defaults, nao pra decodificar.
     python dump.py "...\\KenshiCoop.mod"
     python dump.py "...\\Genesis.mod" --tipos          (so o resumo por typecode)
     python dump.py "...\\Foo.mod" --json > foo.json    (pra diff/versionamento)
+    python dump.py "...\\quick.save" --tipo 34 --n 2   (so registros de um tipo)
 """
 import base64
 import json
@@ -28,7 +29,10 @@ def para_json(mod):
             return list(v)
         return v
 
-    saida = {k: conv(v) for k, v in mod.items() if k != "records"}
+    # tail_blocks fica de fora: em save grande sao milhoes de ids, e o JSON
+    # aqui serve pra diff de conteudo, nao pra reconstruir o arquivo.
+    saida = {k: conv(v) for k, v in mod.items()
+             if k not in ("records", "tail_blocks")}
     saida["records"] = [
         {
             "typecode": rec["typecode"],
@@ -49,13 +53,20 @@ def para_json(mod):
 
 
 def texto(mod, limite_refs=6):
-    print(f"filetype {mod['filetype']}  versao {mod['mod_version']}  "
-          f"{len(mod['records'])} registros")
-    print(f"autor: {km.t(mod['author'])!r}")
-    print(f"deps : {km.t(mod['dependencies'])}")
-    print(f"refs : {km.t(mod['references'])}")
-    if mod["description"]:
-        print(f"desc : {km.t(mod['description'])[:300]}")
+    if mod["filetype"] == 15:
+        blocos = mod.get("tail_blocks", [])
+        print(f"filetype 15 (save)  nextID {mod['next_id']}  "
+              f"{len(mod['records'])} registros")
+        print(f"cauda: {len(blocos)} bloco(s), "
+              f"{sum(len(b) for b in blocos):,} ids")
+    else:
+        print(f"filetype {mod['filetype']}  versao {mod['mod_version']}  "
+              f"{len(mod['records'])} registros")
+        print(f"autor: {km.t(mod['author'])!r}")
+        print(f"deps : {km.t(mod['dependencies'])}")
+        print(f"refs : {km.t(mod['references'])}")
+        if mod["description"]:
+            print(f"desc : {km.t(mod['description'])[:300]}")
     for rec in mod["records"]:
         print(f"\n[typecode {rec['typecode']}] {km.t(rec['name'])}"
               f"  (id {km.t(rec['strid'])}, modtype {rec['mod_data_type']})")
@@ -92,6 +103,11 @@ def main(argv):
         print(__doc__)
         return 1
     mod = km.ler(argv[0])
+    if "--tipo" in argv:
+        alvo = int(argv[argv.index("--tipo") + 1])
+        limite = int(argv[argv.index("--n") + 1]) if "--n" in argv else 3
+        mod["records"] = [r for r in mod["records"]
+                          if r["typecode"] == alvo][:limite]
     if "--json" in argv:
         json.dump(para_json(mod), sys.stdout, indent=1, ensure_ascii=False)
     elif "--tipos" in argv:

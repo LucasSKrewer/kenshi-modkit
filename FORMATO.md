@@ -27,6 +27,43 @@ Neste modkit as strings são mantidas como `bytes` crus, nunca `str`. É o que
 garante o round-trip: decodificar e recodificar poderia "consertar" um byte
 inválido e mudar o arquivo.
 
+## Cabeçalho — filetype 15 (saves)
+
+Um save do Kenshi não é um arquivo, é uma **pasta com milhares**: um `.save` com
+o estado geral, um `.zone` por pedaço do mapa e um `.platoon` por esquadrão.
+Todos filetype 15.
+
+```
+L  filetype = 15
+L  next id           (próximo id livre; nos saves vistos chega à casa do milhão)
+L  quantidade de registros
+   ... registros, exatamente no mesmo formato dos filetypes 16/17 ...
+   ... cauda: sequência de blocos, até o fim do arquivo ...
+```
+
+Cada bloco da cauda é `[L quantidade][L valor] *`, e os valores observados são
+sequenciais (`1, 2, 3, ...`) — têm cara de pool de ids, mas o **significado não
+foi levantado**; para round-trip não é preciso. Um `.zone` tinha 1 bloco, um
+`quick.save` tinha 4 (o maior com 736 mil valores), e nos dois a cauda consome o
+arquivo exatamente.
+
+**O espaço de typecodes do save é outro.** Os saves usam typecodes que não
+aparecem em `data/` — 34 (esquadrão vivo), 94 (estado de cidade), 37 (facção),
+9, 39... São tipos de runtime, não as definições do FCS, então
+[TYPECODES.md](TYPECODES.md) não vale para saves. Os `strid` também mudam: em
+vez de `550-gamedata.base`, vêm como `Saqueadores Sangrentos_9`, e o
+`mod data type` é 0.
+
+**NaN sinalizante.** Os saves contêm floats que são NaN com o bit alto da
+mantissa em zero. Desempacotar para `float` do Python e reempacotar **quietiza**
+esse NaN (liga o bit `0x400000`) e muda o arquivo em um byte. Por isso
+`kenshimod.FloatFiel` guarda os bytes originais quando o reempacote não os
+reproduz. Sem isso, 4 dos 21 `.save` falhavam o round-trip por 1 byte cada.
+
+⚠️ **Gravar save é outra conversa.** O formato está resolvido, mas save
+corrompido é campanha perdida, e o jogo reescreve essa pasta sozinho. Leia à
+vontade; grave só em cópia.
+
 ## Cabeçalho — filetype 16 (FCS antigo)
 
 ```
@@ -138,5 +175,8 @@ Quando o Genesis altera um personagem da base, o registro dele continua sendo
 3. **`mod data type`** (16, 129, negativos grandes): provavelmente sinaliza
    "registro novo" vs "registro alterado" vs "registro removido".
 4. **`desconhecido` do cabeçalho ft16** e o miolo do ft17.
-5. **Filetype 15 (saves).** Não implementado. Segundo o guia tem cauda de
-   int32 no fim do arquivo, ausente nos tipos 16/17.
+5. **Significado da cauda do filetype 15** — listas de ids sequenciais, formato
+   entendido, propósito não.
+6. **Typecodes dos saves** (34, 94, 37, 9, 39...): identificados só por
+   observação dos nomes. O `fcs.def` não descreve tipos de runtime, então os
+   três canais do `typecodes.py` não alcançam esses.

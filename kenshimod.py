@@ -1,9 +1,12 @@
-"""Leitor/gravador do formato .mod / .base do Kenshi, em Python puro.
+"""Leitor/gravador dos formatos binarios do Kenshi, em Python puro.
 
-Suporta filetype 16 (FCS antigo) e 17 (FCS novo, nao coberto pela spec da
-comunidade -- ver FORMATO.md). Strings sao mantidas como BYTES crus de
-proposito: e o que garante round-trip byte-identico, sem risco de o encoding
-"consertar" algo e mudar o arquivo.
+Suporta filetype 15 (saves: .save, .zone, .platoon), 16 (FCS antigo) e 17 (FCS
+novo, nao coberto pela spec da comunidade -- ver FORMATO.md). Strings sao
+mantidas como BYTES crus de proposito: e o que garante round-trip
+byte-identico, sem risco de o encoding "consertar" algo e mudar o arquivo.
+
+AVISO sobre saves: save corrompido e campanha perdida. Este modulo le save de
+boa vontade, mas nunca grave por cima do original -- gere em copia.
 
 Uso tipico:
     import kenshimod as km
@@ -14,7 +17,23 @@ Uso tipico:
 import re
 import struct
 
-FILETYPES_SUPORTADOS = (16, 17)
+FILETYPES_SUPORTADOS = (15, 16, 17)
+
+
+class FloatFiel(float):
+    """float que lembra os bytes originais.
+
+    Os saves do Kenshi contem NaN SINALIZANTE (expoente todo-um com o bit alto
+    da mantissa em 0). O Python quietiza esse NaN ao desempacotar e reempacotar
+    -- liga o bit 0x400000 -- e o arquivo sai diferente por um byte. Guardar os
+    bytes crus preserva a fidelidade sem abrir mao de usar o valor como float.
+    """
+    __slots__ = ("raw",)
+
+    def __new__(cls, valor, raw):
+        obj = super().__new__(cls, valor)
+        obj.raw = raw
+        return obj
 
 
 class Reader:
@@ -28,9 +47,11 @@ class Reader:
         return v
 
     def f32(self):
+        raw = self.d[self.p:self.p + 4]
         v = struct.unpack_from("<f", self.d, self.p)[0]
         self.p += 4
-        return v
+        # so embrulha quando reempacotar NAO reproduz os bytes (NaN sinalizante)
+        return v if struct.pack("<f", v) == raw else FloatFiel(v, raw)
 
     def u8(self):
         v = self.d[self.p]
@@ -60,7 +81,7 @@ class Writer:
         self.out += struct.pack("<i", v)
 
     def f32(self, v):
-        self.out += struct.pack("<f", v)
+        self.out += v.raw if isinstance(v, FloatFiel) else struct.pack("<f", v)
 
     def u8(self, v):
         self.out.append(v)
@@ -170,7 +191,12 @@ def desserializar(data):
     if mod["filetype"] not in FILETYPES_SUPORTADOS:
         raise ValueError(f"filetype {mod['filetype']} nao suportado "
                          f"(esperado {FILETYPES_SUPORTADOS})")
-    if mod["filetype"] == 17:
+    if mod["filetype"] == 15:
+        # save (.save/.zone/.platoon): cabecalho curto, sem strings, e uma
+        # CAUDA depois dos registros que os filetypes 16/17 nao tem.
+        mod["next_id"] = r.i32()
+        mod["record_count"] = r.i32()
+    elif mod["filetype"] == 17:
         # ft17: campo em offset 4 = deslocamento dos dados (+16). O miolo do
         # cabecalho (lista de mods relacionados) segue nao decodificado e vai
         # cru em mod["middle"]; o record_count e o ultimo int32 antes dos dados.
@@ -196,14 +222,30 @@ def desserializar(data):
         except Exception as e:
             raise ValueError(f"registro #{i} de {mod['record_count']}: {e}") from e
     mod["records"] = recs
-    mod["tail"] = data[r.p:]  # vazio nos filetypes 16/17
+    if mod["filetype"] == 15:
+        # cauda: sequencia de blocos [L contagem][L valor]*, listas de ids
+        # (valores sequenciais 1,2,3...). Consome o arquivo exatamente.
+        blocos = []
+        while r.p + 4 <= len(data):
+            cont = r.i32()
+            if cont < 0 or r.p + cont * 4 > len(data):
+                raise ValueError(f"bloco de cauda invalido: contagem={cont} "
+                                 f"em {r.p - 4:#x}")
+            blocos.append(list(struct.unpack_from(f"<{cont}i", data, r.p))
+                          if cont else [])
+            r.p += cont * 4
+        mod["tail_blocks"] = blocos
+    mod["tail"] = data[r.p:]  # vazio nos tres filetypes suportados
     return mod
 
 
 def serializar(mod):
     w = Writer()
     w.i32(mod["filetype"])
-    if mod["filetype"] == 17:
+    if mod["filetype"] == 15:
+        w.i32(mod["next_id"])
+        w.i32(len(mod["records"]))
+    elif mod["filetype"] == 17:
         w.i32(0)  # placeholder do data_offset
         w.i32(mod["mod_version"])
         for campo in ("author", "description", "dependencies", "references"):
@@ -220,6 +262,11 @@ def serializar(mod):
         w.i32(len(mod["records"]))
     for rec in mod["records"]:
         _gravar_registro(w, rec)
+    if mod["filetype"] == 15:
+        for bloco in mod["tail_blocks"]:
+            w.i32(len(bloco))
+            for v in bloco:
+                w.i32(v)
     w.raw(mod["tail"])
     return bytes(w.out)
 

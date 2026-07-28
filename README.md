@@ -55,6 +55,7 @@ de novo jogo.
 | `ordem.py` | recomenda ordem de load justificada; `--aplicar` escreve o `mods.cfg` (com backup) |
 | `typecodes.py` | levanta o mapa de typecodes correlacionando registros com o `fcs.def` |
 | `typecodes_save.py` | identifica os typecodes de runtime, que só existem em save |
+| `qol.py` | gera um mod de qualidade de vida a partir dos números declarados no topo do arquivo |
 | `savediff.py` | compara dois saves e mostra o que mudou no mundo (só leitura) |
 | `teste_ingame.py` | gera um mod que edita **e** cria registro, para validar no jogo |
 | `pesquisa/` | as sondas da engenharia reversa ([método](pesquisa/LEIA.md)) |

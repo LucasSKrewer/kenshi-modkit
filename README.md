@@ -15,7 +15,7 @@ O formato está documentado em [FORMATO.md](FORMATO.md), incluindo o
 
 | | |
 |---|---|
-| Ler / gravar filetype 16 e 17 | ✅ **24/24 arquivos** round-trip byte-idêntico |
+| Ler / gravar filetype 15, 16 e 17 | ✅ **52.445 arquivos** round-trip byte-idêntico |
 | Editar campo, referência, strings do cabeçalho | ✅ |
 | Criar registro por clonagem | ✅ validado in-game |
 | Kenshi carregar mod gerado por script | ✅ validado in-game (2026-07-27) |
@@ -27,8 +27,15 @@ O formato está documentado em [FORMATO.md](FORMATO.md), incluindo o
 
 O round-trip byte-idêntico é o critério de verdade do projeto: ler um arquivo e
 regravá-lo tem que produzir exatamente os mesmos bytes. Sem isso, gravar mod por
-script é chute. Passa em 24 arquivos, incluindo `gamedata.base`, `Dialogue.mod`
-(39.077 registros) e o **Genesis.mod** — 19,7 MB, **26.495 registros**.
+script é chute.
+
+- **23 mods e dados-base**, incluindo `gamedata.base`, `Dialogue.mod` (39.077
+  registros) e o **Genesis.mod** — 19,7 MB, 26.495 registros;
+- **52.422 arquivos de save** (3,4 GB de `.save`, `.zone` e `.platoon`), em
+  15,5 min — `python roundtrip.py --saves-tudo`.
+
+O volume importa: o caso do NaN sinalizante que quebrava a fidelidade aparecia
+em 4 arquivos entre dezenas de milhares. Amostra pequena teria escondido.
 
 O teste in-game (`teste_ingame.py`) gerou um mod com um game start **editado**
 (1000 → 7777 gatos) e outro **criado por clonagem**, e os dois apareceram na tela

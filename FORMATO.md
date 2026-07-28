@@ -2,8 +2,10 @@
 
 Tudo aqui foi verificado contra uma instalação real (Kenshi **1.0.65 x64**,
 Steam), com o critério de **round-trip byte-idêntico**: ler e regravar tem que produzir exatamente os mesmos bytes.
-23/23 arquivos passam (`python roundtrip.py --tudo`), incluindo `gamedata.base`,
-`Dialogue.mod` (39.077 registros) e `Genesis.mod` (19,7 MB, 26.495 registros).
+Passam **52.445 arquivos**: os 23 mods e dados-base (`python roundtrip.py
+--tudo`), incluindo `gamedata.base`, `Dialogue.mod` (39.077 registros) e
+`Genesis.mod` (19,7 MB, 26.495 registros); e os 52.422 arquivos de save,
+3,4 GB (`python roundtrip.py --saves-tudo`, 15,5 min).
 
 Base de partida: o guia [Kenshi gamedata/mod/save file
 format](https://steamcommunity.com/sharedfiles/filedetails/?id=797652627) do

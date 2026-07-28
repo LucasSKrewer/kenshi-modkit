@@ -274,8 +274,22 @@ def main(argv):
         elif tipo_ref:
             linha[2] = "CONFLITO"
 
-    for tc, _n, conf, *_ in linhas:
-        (resolvidos if conf in ("exato", "CONFIRMADO") else ambiguos).append(tc)
+    # "duplicado" e o unico estado que significa DESCONHECIDO: outro typecode
+    # reivindica melhor aquele tipo, entao o tipo real deste nao esta no
+    # fcs.def. Recall alto sem confirmacao por referencia e "provavel", nao
+    # ambiguo -- so quer dizer que ninguem aponta refs para aquele tipo.
+    provaveis = []
+    for linha in linhas:
+        tc, conf, recall = linha[0], linha[2], linha[3]
+        if conf in ("exato", "CONFIRMADO", "POR NOME"):
+            resolvidos.append(tc)
+        elif conf == "duplicado":
+            ambiguos.append(tc)
+        elif recall >= 0.9:
+            linha[2] = "provavel"
+            provaveis.append(tc)
+        else:
+            ambiguos.append(tc)
 
     if "--detalhe" in argv:
         tc = int(argv[argv.index("--detalhe") + 1])
@@ -342,8 +356,9 @@ def main(argv):
     for tc, nome, conf, rec, _pre, n, _nc, ex, alt, ref in linhas:
         extra = f"   [ref: {ref}]" if ref else (f"   [empata: {alt}]" if alt else "")
         print(f"{tc:>5} {nome:<28} {conf:<11} {rec:>6.0%} {n:>7}  {extra}")
-    print(f"\nresolvidos com certeza: {len(resolvidos)} de {len(campos)} typecodes "
-          f"vistos ({len(ambiguos)} ambíguos)")
+    print(f"\nde {len(campos)} typecodes vistos: {len(resolvidos)} com certeza, "
+          f"{len(provaveis)} provaveis (recall >= 90%, sem refs que confirmem), "
+          f"{len(ambiguos)} desconhecidos")
     return 0
 
 

@@ -19,7 +19,8 @@ O formato está documentado em [FORMATO.md](FORMATO.md), incluindo o
 | Editar campo, referência, strings do cabeçalho | ✅ |
 | Criar registro por clonagem | ✅ validado in-game |
 | Kenshi carregar mod gerado por script | ✅ validado in-game (2026-07-27) |
-| Mapa de typecodes | ✅ **70 de 78** com certeza ([TYPECODES.md](TYPECODES.md)) |
+| Mapa de typecodes (mods) | ✅ **71 de 78** com certeza + 4 prováveis ([TYPECODES.md](TYPECODES.md)) |
+| Typecodes de runtime (saves) | ✅ os principais, inferidos com evidência ([TYPECODES-SAVE.md](TYPECODES-SAVE.md)) |
 | Detector de conflito | ✅ |
 | Ler saves (filetype 15) | ✅ `.save`, `.zone`, `.platoon` |
 | Criar registro do zero | ❌ depende dos typecodes que faltam |
@@ -53,6 +54,7 @@ de novo jogo.
 | `conflitos.py` | quais mods brigam pelo mesmo registro e qual valor ganha |
 | `ordem.py` | recomenda ordem de load justificada; `--aplicar` escreve o `mods.cfg` (com backup) |
 | `typecodes.py` | levanta o mapa de typecodes correlacionando registros com o `fcs.def` |
+| `typecodes_save.py` | identifica os typecodes de runtime, que só existem em save |
 | `savediff.py` | compara dois saves e mostra o que mudou no mundo (só leitura) |
 | `teste_ingame.py` | gera um mod que edita **e** cria registro, para validar no jogo |
 | `pesquisa/` | as sondas da engenharia reversa ([método](pesquisa/LEIA.md)) |

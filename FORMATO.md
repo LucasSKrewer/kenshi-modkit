@@ -43,18 +43,40 @@ L  quantidade de registros
    ... cauda: sequência de blocos, até o fim do arquivo ...
 ```
 
-Cada bloco da cauda é `[L quantidade][L valor] *`, e os valores observados são
-sequenciais (`1, 2, 3, ...`) — têm cara de pool de ids, mas o **significado não
-foi levantado**; para round-trip não é preciso. Um `.zone` tinha 1 bloco, um
-`quick.save` tinha 4 (o maior com 736 mil valores), e nos dois a cauda consome o
-arquivo exatamente.
+Cada bloco da cauda é `[L quantidade][L valor] *`. Um `.zone` tem 1 bloco, um
+`quick.save` tem 4, um `.platoon` costuma ter nenhum, e em todos a cauda consome
+o arquivo exatamente.
 
-**O espaço de typecodes do save é outro.** Os saves usam typecodes que não
-aparecem em `data/` — 34 (esquadrão vivo), 94 (estado de cidade), 37 (facção),
-9, 39... São tipos de runtime, não as definições do FCS, então
-[TYPECODES.md](TYPECODES.md) não vale para saves. Os `strid` também mudam: em
-vez de `550-gamedata.base`, vêm como `Saqueadores Sangrentos_9`, e o
-`mod data type` é 0.
+**São pools de id.** Os valores são crescentes e quase contíguos, com lacunas —
+o retrato de ids alocados dos quais alguns foram liberados (`min=1 max=3623`,
+3454 valores, faltando 1574, 2704, 2863...). Correlacionando com o resto do
+save, nos 21 saves desta máquina:
+
+- **bloco 0** acompanha de perto a quantidade de arquivos `.platoon` da pasta
+  (153 → 154, 1153 → 1160, 3359 → 3454), sempre um pouco maior;
+- **bloco 1** acompanha o pool de **handles de personagem** (`handC`): 317
+  valores distintos para um bloco de 318; 390 para um bloco de 392;
+- **blocos 2 e 3** são muito maiores (chegam a 890 mil) e crescem com o tempo de
+  jogo — provavelmente os pools de objetos e itens do mundo.
+
+A correspondência é forte mas não exata (erra por 1 a 5 em alguns saves), então
+a **semântica fina segue em aberto**: por que sobram ids sem arquivo, e o que
+exatamente entra em cada pool. Para round-trip não faz diferença — os blocos são
+preservados como estão.
+
+**O espaço de typecodes do save é o mesmo, com tipos a mais.** Alguns coincidem
+com as definições (4 = ITEM, 25 = STATS, agora como instâncias no mundo), mas a
+maioria só existe em partida e não está no `fcs.def`: 34 (esquadrão vivo), 94
+(estado de cidade, com o estoque das lojas), 9 (controle de facção), 35 (objeto
+colocado no mundo). Levantados em [TYPECODES-SAVE.md](TYPECODES-SAVE.md) por
+evidência — o que o registro referencia, em que arquivo mora, como se chama —
+e marcados como **inferidos**, não como autoridade do jogo.
+
+**Registros de save se ligam por HANDLE, não por `strid`.** Em vez de
+`550-gamedata.base`, os campos são `handC`, `handS`, `handI`, `handCS` e
+`handTYPE`, e o `strid` vira algo como `Saqueadores Sangrentos_9` (com
+`mod data type` 0). É o que explica a cauda: os pools de id do fim do arquivo
+são o outro lado desse sistema de handles.
 
 **NaN sinalizante.** Os saves contêm floats que são NaN com o bit alto da
 mantissa em zero. Desempacotar para `float` do Python e reempacotar **quietiza**
@@ -165,20 +187,27 @@ Quando o Genesis altera um personagem da base, o registro dele continua sendo
 
 ## O que segue desconhecido
 
-1. **Mapa de typecodes**: **70 dos 78** typecodes vistos estão identificados em
+1. **Mapa de typecodes**: **71 dos 78** typecodes vistos estão identificados em
    [TYPECODES.md](TYPECODES.md), levantados por `typecodes.py` com três canais
    independentes (conjunto de campos × `fcs.def`; para onde as referências reais
    apontam; nome auto-gerado dos registros). Faltam 8, todos grupos minúsculos
    (1 a 3 registros). Note que o `fcs.def` **não lista todos os tipos**: o
    typecode 31, com 21 mil registros, é `DIALOG_ACTION` e não aparece lá — só o
-   canal de nomes o alcança.
+   canal de nomes o alcança. Mais 4 são **prováveis** (recall ≥ 90% e casamento
+   único, só sem referência que confirme: WEAPON, COMBAT_TECHNIQUE, CONSTANTS,
+   BIOMES). Desconhecidos de verdade sobraram **3** — os typecodes 53, 56 e 92,
+   com 3, 1 e 2 registros respectivamente, cujos nomes não estão nem no
+   `fcs.def`, nem no `fcs_layout.def`, nem em ASCII nos binários do jogo.
 2. **`instance count`** no início do registro (1119, 891...): não é a
    quantidade de instances da seção final.
 3. **`mod data type`** (16, 129, negativos grandes): provavelmente sinaliza
    "registro novo" vs "registro alterado" vs "registro removido".
 4. **`desconhecido` do cabeçalho ft16** e o miolo do ft17.
-5. **Significado da cauda do filetype 15** — listas de ids sequenciais, formato
-   entendido, propósito não.
-6. **Typecodes dos saves** (34, 94, 37, 9, 39...): identificados só por
-   observação dos nomes. O `fcs.def` não descreve tipos de runtime, então os
-   três canais do `typecodes.py` não alcançam esses.
+5. **Semântica fina da cauda do filetype 15** — são pools de id (ver acima), com
+   correspondência forte mas não exata: o bloco 0 acompanha os `.platoon`, o
+   bloco 1 o pool de `handC`. Falta explicar os ids sem arquivo e o conteúdo
+   exato dos blocos 2 e 3.
+6. **Onde vivem os nomes dos tipos.** O `kenshi_x64.exe` não tem os nomes em
+   ASCII nem UTF-16; o `forgotten construction set.exe` tem todos, mas o linker
+   agrupou as strings por sufixo, sem tabela ordenada — então não dá para tirar
+   dali a correspondência número → nome. Seria preciso desmontar o FCS.

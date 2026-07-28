@@ -11,7 +11,7 @@ Gerado por `python typecodes.py`. Dois métodos independentes:
 |---|---|---|---|---|---|---|
 | 0 | `BUILDING` | CONFIRMADO | 70% | ref: BUILDING (1189) | 1148 | sign2- -clothes |
 | 1 | `CHARACTER` | CONFIRMADO | 88% | ref: CHARACTER (1668) | 988 | Mercenary heavy |
-| 2 | `WEAPON` | parcial | 93% | — | 68 | Katana |
+| 2 | `WEAPON` | provavel | 93% | — | 68 | Katana |
 | 3 | `ARMOUR` | CONFIRMADO | 92% | ref: ARMOUR (5100) | 257 | Mask 2 |
 | 4 | `ITEM` | CONFIRMADO | 91% | ref: ITEM (2947) | 416 | Steel bars |
 | 5 | `ANIMAL_ANIMATION` | CONFIRMADO | 100% | ref: ANIMAL_ANIMATION (254) | 68 | bull walk |
@@ -20,7 +20,7 @@ Gerado por `python typecodes.py`. Dois métodos independentes:
 | 10 | `FACTION` | CONFIRMADO | 95% | ref: FACTION (2202) | 161 | Medics Guild |
 | 13 | `TOWN` | CONFIRMADO | 97% | ref: TOWN (472) | 436 | Bark |
 | 16 | `LOCATIONAL_DAMAGE` | CONFIRMADO | 91% | ref: LOCATIONAL_DAMAGE (862) | 11 | Head |
-| 17 | `COMBAT_TECHNIQUE` | parcial | 95% | — | 60 | Cut left static |
+| 17 | `COMBAT_TECHNIQUE` | provavel | 95% | — | 60 | Cut left static |
 | 18 | `DIALOGUE` | CONFIRMADO | 90% | ref: DIALOGUE (3610) | nome: DIALOGUE | 2203 | Law enforcement defeats squad (arrest th |
 | 19 | `DIALOGUE_LINE` | CONFIRMADO | 92% | ref: DIALOGUE_LINE (28701) | nome: DIALOGUE_LINE | 23889 | DIALOGUE_LINE6071 |
 | 21 | `RESEARCH` | CONFIRMADO | 100% | ref: RESEARCH (257) | 275 | Heavy Building Foundations |
@@ -28,8 +28,8 @@ Gerado por `python typecodes.py`. Dois métodos independentes:
 | 24 | `ANIMATION` | CONFIRMADO | 100% | ref: ANIMATION (99) | 197 | idle_stand_relax |
 | 25 | `STATS` | CONFIRMADO | 66% | ref: STATS (202) | 62 | hire medic |
 | 26 | `PERSONALITY` | CONFIRMADO | 100% | ref: PERSONALITY (268) | 34 | bandit types |
-| 27 | `CONSTANTS` | parcial | 97% | — | 3 | GLOBAL CONSTANTS |
-| 28 | `BIOMES` | parcial | 96% | — | 137 | desert |
+| 27 | `CONSTANTS` | provavel | 97% | — | 3 | GLOBAL CONSTANTS |
+| 28 | `BIOMES` | provavel | 96% | — | 137 | desert |
 | 29 | `BUILDING_PART` | CONFIRMADO | 79% | ref: BUILDING_PART (1614) | nome: BARSIGN | 1464 | basic wall gate A |
 | 31 | `DIALOG_ACTION` | POR NOME | 42% | nome: DIALOG_ACTION | 21225 | DIALOG_ACTION4205 |
 | 43 | `REPEATABLE_BUILDING_PART_SLOT` | exato | 100% | — | 4 | hatches |

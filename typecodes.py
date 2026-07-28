@@ -13,7 +13,7 @@ fcs.def, e nenhuma outra seção contém todos, o typecode 64 é GAME_START.
 import os
 import re
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 import caminhos
 import kenshimod as km
@@ -60,6 +60,118 @@ def ler_fcs_def(caminho=None):
             for t in atuais:
                 tipos[t].add(normalizar(nome))
     return tipos
+
+
+RE_CAMPO_REF = re.compile(r"^([^:]+):\s+([A-Z][A-Z0-9_]{2,})(?:\s|\(|$)")
+
+
+def campos_de_referencia(caminho=None, tipos=None):
+    """campo -> tipo apontado, segundo o fcs.def.
+
+    Linhas como `clothing:  ARMOUR (1, 100) "..."` dizem que o campo `clothing`
+    referencia registros do tipo ARMOUR. Isso dá um canal INDEPENDENTE do
+    casamento por conjunto de campos: se nos dados as refs de `clothing`
+    apontam para registros de typecode 3, então typecode 3 = ARMOUR.
+
+    Campos definidos em mais de um tipo com alvos diferentes são descartados
+    (ambíguos por construção).
+    """
+    caminho = caminho or caminhos.fcs_def()
+    alvos = defaultdict(set)
+    with open(caminho, "r", encoding="utf-8", errors="replace") as f:
+        for linha in f:
+            if RE_SECAO.match(linha):
+                continue
+            m = RE_CAMPO_REF.match(linha.rstrip())
+            if not m:
+                continue
+            campo, alvo = m.group(1).strip(), m.group(2)
+            if tipos is None or alvo in tipos:
+                alvos[normalizar(campo)].add(alvo)
+    return {c: next(iter(s)) for c, s in alvos.items() if len(s) == 1}
+
+
+def por_referencia(arquivos, alvos_por_campo):
+    """typecode -> (tipo deduzido, quantas refs sustentam, pureza)
+
+    Percorre as referências reais: para cada categoria de ref, olha o typecode
+    dos registros apontados. Se as refs de um campo caem quase todas no mesmo
+    typecode, e o fcs.def diz que aquele campo aponta para o tipo Y, então esse
+    typecode é Y.
+    """
+    tipo_de = {}          # strid -> typecode
+    refs = defaultdict(Counter)   # campo -> Counter de typecodes apontados
+    total_refs = Counter()        # typecode -> total de refs recebidas
+    registros = []
+    for c in arquivos:
+        if not os.path.exists(c):
+            continue
+        mod = km.ler(c)
+        registros.append(mod)
+        for rec in mod["records"]:
+            tipo_de[rec["strid"]] = rec["typecode"]
+    for mod in registros:
+        for rec in mod["records"]:
+            for cat, items in rec["extra"]:
+                campo = normalizar(km.t(cat))
+                for alvo, *_ in items:
+                    if alvo not in tipo_de:
+                        continue
+                    total_refs[tipo_de[alvo]] += 1
+                    if campo in alvos_por_campo:
+                        refs[campo][tipo_de[alvo]] += 1
+
+    # consolida: cada campo vota no par (typecode dominante, tipo do fcs.def)
+    votos = defaultdict(Counter)
+    for campo, contagem in refs.items():
+        total = sum(contagem.values())
+        if not total:
+            continue
+        tc, n = contagem.most_common(1)[0]
+        if n / total >= 0.9:      # refs de um campo devem ser homogêneas
+            votos[tc][alvos_por_campo[campo]] += n
+    # Trava contra colisão de nome de campo: o mesmo nome pode existir em tipos
+    # diferentes, e um campo cujo tipo real está AUSENTE do fcs.def empresta a
+    # declaração do homônimo. Só concluímos se as refs declaradas forem maioria
+    # de TODAS as refs que aquele typecode recebe.
+    saida = {}
+    for tc, contagem in votos.items():
+        tipo, n = contagem.most_common(1)[0]
+        recebidas = total_refs.get(tc, n)
+        if n / recebidas < 0.5:
+            continue
+        saida[tc] = (tipo, n, n / recebidas)
+    return saida
+
+
+# Exige o número no fim: nome AUTO-GERADO é "<TIPO><numero>" (DIALOG_ACTION4205).
+# Sem essa exigência, registro de nome próprio em maiúsculas entra como se fosse
+# nome de tipo -- foi o que aconteceu com WORD_SWAPS ("DANG") e com um
+# BIOME_GROUP chamado "NONE".
+RE_NOME_TIPO = re.compile(r"^([A-Z][A-Z0-9_]*[A-Z_])(\d+)$")
+
+
+def por_nome(arquivos):
+    """typecode -> nome de tipo sugerido pelos NOMES dos registros.
+
+    Terceiro canal, independente dos outros dois: o jogo nomeia registro sem
+    nome próprio como "<TIPO><numero>" (DIALOGUE_LINE6071, DIALOG_ACTION4205).
+    É o único jeito de nomear tipo que nem existe no fcs.def.
+    """
+    palpite = defaultdict(Counter)
+    for c in arquivos:
+        if not os.path.exists(c):
+            continue
+        for rec in km.ler(c)["records"]:
+            m = RE_NOME_TIPO.match(km.t(rec["name"]).strip())
+            if m:
+                palpite[rec["typecode"]][m.group(1)] += 1
+    saida = {}
+    for tc, contagem in palpite.items():
+        nome, n = contagem.most_common(1)[0]
+        if n >= 3:      # um nome solto não sustenta nada
+            saida[tc] = (nome, n)
+    return saida
 
 
 def campos_por_typecode(arquivos):
@@ -133,8 +245,37 @@ def main(argv):
     for linha in linhas:
         if melhor_por_tipo[linha[1]] is not linha:
             linha[2] = "duplicado"
+    # Canal independente: para onde as referências reais apontam.
+    alvos_por_campo = campos_de_referencia(tipos=tipos)
+    por_ref = por_referencia(caminhos.arquivos_base(), alvos_por_campo)
+    print(f"canal de referência: {len(alvos_por_campo)} campos com tipo de alvo "
+          f"declarado no fcs.def, deduziram {len(por_ref)} typecodes\n")
+    nomes = por_nome(caminhos.arquivos_base())
+    print(f"canal de nomes: {len(nomes)} typecodes com nome de tipo embutido "
+          f"no nome dos registros\n")
+    for linha in linhas:
+        tc = linha[0]
+        tipo_ref = por_ref[tc][0] if tc in por_ref else None
+        tipo_nome = nomes[tc][0] if tc in nomes else None
+        rotulo = []
+        if tipo_ref:
+            rotulo.append(f"ref: {tipo_ref} ({por_ref[tc][1]})")
+        if tipo_nome:
+            rotulo.append(f"nome: {tipo_nome}")
+        linha.append(" | ".join(rotulo))
+        # O canal de nomes é o único que alcança tipo ausente do fcs.def, então
+        # ele ganha -- mas nunca contra os outros dois já concordando entre si.
+        concordam = tipo_ref and tipo_ref == linha[1]
+        if tipo_nome and tipo_nome not in tipos and not concordam:
+            linha[1] = tipo_nome
+            linha[2] = "POR NOME"
+        elif tipo_ref and tipo_ref == linha[1]:
+            linha[2] = "CONFIRMADO"      # dois métodos independentes concordam
+        elif tipo_ref:
+            linha[2] = "CONFLITO"
+
     for tc, _n, conf, *_ in linhas:
-        (resolvidos if conf == "exato" else ambiguos).append(tc)
+        (resolvidos if conf in ("exato", "CONFIRMADO") else ambiguos).append(tc)
 
     if "--detalhe" in argv:
         tc = int(argv[argv.index("--detalhe") + 1])
@@ -151,28 +292,56 @@ def main(argv):
             print(f"  {c}")
         return 0
 
+    if "--refs" in argv:
+        alvo_tc = int(argv[argv.index("--refs") + 1])
+        print(f"quais campos apontam para registros de typecode {alvo_tc}:")
+        tipo_de, contagem = {}, Counter()
+        mods = [km.ler(c) for c in caminhos.arquivos_base() if os.path.exists(c)]
+        for mod in mods:
+            for rec in mod["records"]:
+                tipo_de[rec["strid"]] = rec["typecode"]
+        for mod in mods:
+            for rec in mod["records"]:
+                for cat, items in rec["extra"]:
+                    for a, *_ in items:
+                        if tipo_de.get(a) == alvo_tc:
+                            contagem[normalizar(km.t(cat))] += 1
+        for campo, n in contagem.most_common(12):
+            declara = alvos_por_campo.get(campo, "(sem tipo declarado no fcs.def)")
+            print(f"  {n:>7} refs  campo {campo!r}  -> fcs.def declara: {declara}")
+        return 0
+
     if "--ambiguos" in argv:
         linhas = [l for l in linhas if l[0] in ambiguos]
 
     with open(SAIDA, "w", encoding="utf-8") as f:
         f.write("# Mapa de typecodes\n\n")
-        f.write("Gerado por `python typecodes.py`, correlacionando os campos dos "
-                "registros de `data/` com as seções do `fcs.def` do jogo.\n\n")
-        f.write("`recall` = fração dos campos vistos que o tipo do fcs.def "
-                "explica. `exato` = recall 100% e sem empate.\n\n")
-        f.write("| typecode | tipo | confiança | recall | registros | exemplo |\n")
-        f.write("|---|---|---|---|---|---|\n")
-        for tc, nome, conf, rec, _pre, n, _nc, ex, alt in linhas:
+        f.write("Gerado por `python typecodes.py`. Dois métodos independentes:\n\n")
+        f.write("1. **campos** — casa o conjunto de campos dos registros de "
+                "`data/` com as seções do `fcs.def`. `recall` é a fração dos "
+                "campos vistos que o tipo explica.\n")
+        f.write("2. **referências** — o `fcs.def` diz qual tipo cada campo de "
+                "referência aponta (`clothing: ARMOUR`); seguindo as refs reais "
+                "até o typecode do registro apontado, o tipo sai sem depender "
+                "do método 1.\n\n")
+        f.write("`CONFIRMADO` = os dois métodos concordam. `exato` = recall 100% "
+                "sem empate, mas sem confirmação por referência. `duplicado` = "
+                "outro typecode casa melhor com esse mesmo tipo, logo o tipo real "
+                "deste provavelmente não está no `fcs.def`.\n\n")
+        f.write("| typecode | tipo | confiança | recall | por referência | "
+                "registros | exemplo |\n")
+        f.write("|---|---|---|---|---|---|---|\n")
+        for tc, nome, conf, rec, _pre, n, _nc, ex, alt, ref in linhas:
             nome_txt = nome if not alt else f"{nome} *(ou {alt})*"
-            f.write(f"| {tc} | `{nome_txt}` | {conf} | {rec:.0%} | {n} | "
-                    f"{ex[:40]} |\n")
+            f.write(f"| {tc} | `{nome_txt}` | {conf} | {rec:.0%} | {ref or '—'} | "
+                    f"{n} | {ex[:40]} |\n")
     print(f"gravado: {SAIDA}\n")
 
-    print(f"{'tc':>5} {'tipo (fcs.def)':<28} {'conf':<8} {'recall':>6} "
-          f"{'regs':>7}  exemplo / alternativas")
-    for tc, nome, conf, rec, _pre, n, _nc, ex, alt in linhas:
-        extra = f"   [empata com: {alt}]" if alt else ""
-        print(f"{tc:>5} {nome:<28} {conf:<8} {rec:>6.0%} {n:>7}  {ex[:34]}{extra}")
+    print(f"{'tc':>5} {'tipo (fcs.def)':<28} {'conf':<11} {'recall':>6} "
+          f"{'regs':>7}  por referência / alternativas")
+    for tc, nome, conf, rec, _pre, n, _nc, ex, alt, ref in linhas:
+        extra = f"   [ref: {ref}]" if ref else (f"   [empata: {alt}]" if alt else "")
+        print(f"{tc:>5} {nome:<28} {conf:<11} {rec:>6.0%} {n:>7}  {extra}")
     print(f"\nresolvidos com certeza: {len(resolvidos)} de {len(campos)} typecodes "
           f"vistos ({len(ambiguos)} ambíguos)")
     return 0

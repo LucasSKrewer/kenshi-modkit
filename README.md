@@ -19,7 +19,7 @@ O formato está documentado em [FORMATO.md](FORMATO.md), incluindo o
 | Editar campo, referência, strings do cabeçalho | ✅ |
 | Criar registro por clonagem | ✅ validado in-game |
 | Kenshi carregar mod gerado por script | ✅ validado in-game (2026-07-27) |
-| Mapa de typecodes | ✅ parcial — 45 de 78 com certeza ([TYPECODES.md](TYPECODES.md)) |
+| Mapa de typecodes | ✅ **70 de 78** com certeza ([TYPECODES.md](TYPECODES.md)) |
 | Detector de conflito | ✅ |
 | Criar registro do zero | ❌ depende dos typecodes que faltam |
 | Filetype 15 (saves) | ❌ não implementado |

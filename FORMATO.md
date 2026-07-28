@@ -126,11 +126,13 @@ Quando o Genesis altera um personagem da base, o registro dele continua sendo
 
 ## O que segue desconhecido
 
-1. **Mapa de typecodes.** Conhecidos por observação: `1` = personagem,
-   `52` = squad/town template, `64` = game start. Faltam os outros ~111.
-   Caminho: correlacionar o conjunto de campos de cada registro com as seções
-   do `fcs.def`. Enquanto não existir, criar registro do zero é chute —
-   contornável clonando um registro existente, que herda o typecode.
+1. **Mapa de typecodes**: **70 dos 78** typecodes vistos estão identificados em
+   [TYPECODES.md](TYPECODES.md), levantados por `typecodes.py` com três canais
+   independentes (conjunto de campos × `fcs.def`; para onde as referências reais
+   apontam; nome auto-gerado dos registros). Faltam 8, todos grupos minúsculos
+   (1 a 3 registros). Note que o `fcs.def` **não lista todos os tipos**: o
+   typecode 31, com 21 mil registros, é `DIALOG_ACTION` e não aparece lá — só o
+   canal de nomes o alcança.
 2. **`instance count`** no início do registro (1119, 891...): não é a
    quantidade de instances da seção final.
 3. **`mod data type`** (16, 129, negativos grandes): provavelmente sinaliza

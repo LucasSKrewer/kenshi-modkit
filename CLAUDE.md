@@ -2,9 +2,11 @@
 
 ## O que é
 
-Biblioteca Python que lê e grava o formato binário de mods do Kenshi, para
-tratar mod como código em vez de cliques no FCS. Formato documentado em
-`FORMATO.md`; estado atual e próximos passos no `README.md`.
+Biblioteca Python que lê e grava os formatos binários do Kenshi — mods
+(filetypes 16/17) e saves (filetype 15) — para tratar mod como código em vez de
+cliques no FCS. Formato documentado em `FORMATO.md`, typecodes em
+`TYPECODES.md` (definições) e `TYPECODES-SAVE.md` (runtime); estado atual e
+próximos passos no `README.md`.
 
 ## Regras
 
@@ -18,13 +20,25 @@ tratar mod como código em vez de cliques no FCS. Formato documentado em
 - **Nunca gravar sobre arquivo do jogo.** Gerar em `out/` e copiar para
   `Kenshi\mods\<Nome>\` só de forma explícita (é o que `--instalar` faz).
   `data/`, `gamedata.base` e os mods do Workshop são somente leitura.
+- **Save é intocável para escrita.** Ler à vontade; nunca gravar em
+  `<Kenshi>/save/`, nem "só pra testar". Save corrompido é campanha perdida e o
+  jogo reescreve essa pasta sozinho. Se um dia houver escrita, é em cópia.
+  Exceção já autorizada e feita: `ordem.py --aplicar` escreve `data/mods.cfg`,
+  e mesmo assim com backup `.bak`.
 - **Round-trip é o critério de verdade.** Qualquer mudança em `kenshimod.py`
-  exige `python roundtrip.py --tudo` passando 23/23 antes de ser considerada
-  pronta. Sem isso, não afirmar que funciona.
-- **Não inventar semântica de campo.** Vários campos seguem desconhecidos
-  (`instance count`, `mod data type`, typecodes). Se um teste contrariar uma
-  hipótese, corrigir o `FORMATO.md` — já aconteceu duas vezes (o `id` não é o
-  número do `strid`; o sufixo do `strid` não indica registro próprio).
+  exige `python roundtrip.py --tudo` **e** `--saves` passando antes de ser
+  considerada pronta (referência: 23/23 mods, 261/261 na amostra de saves,
+  52.422/52.422 em `--saves-tudo`, que leva ~15 min). Sem isso, não afirmar que
+  funciona.
+- **Não inventar semântica de campo.** Vários seguem desconhecidos
+  (`instance count`, `mod data type`, os 3 typecodes de mod restantes, a
+  semântica fina da cauda do ft15). Se um teste contrariar uma hipótese,
+  corrigir o `FORMATO.md` — já aconteceu quatro vezes: o `id` não é o número do
+  `strid`; o sufixo do `strid` não indica registro próprio; strid em comum não
+  é redundância entre mods; e a cauda do ft15 não é `1..N` sequencial.
+- **Rótulo inferido é marcado como inferido.** Os nomes em `TYPECODES-SAVE.md`
+  vêm de evidência (o que o registro aponta, onde mora, como se chama), não do
+  jogo. Manter a prova ao lado do rótulo.
 
 ## Commits
 
@@ -33,9 +47,11 @@ tratar mod como código em vez de cliques no FCS. Formato documentado em
   ("adiciona detector de conflito", não "adicionado" nem "mudanças").
 - Corpo (quando não for óbvio) explica **por que**, não o que — o diff já diz o
   que. Linhas até 72 colunas.
-- Nada de arquivo gerado no commit, exceto `TYPECODES.md`, que é resultado de
-  pesquisa e serve como documentação.
+- Nada de arquivo gerado no commit, exceto `TYPECODES.md` e
+  `TYPECODES-SAVE.md`, que são resultado de pesquisa e servem como documentação.
 - Não commitar antes de `roundtrip.py --tudo` passar.
+- Mensagem longa quebra o here-string do PowerShell quando tem aspas: escrever
+  em arquivo e usar `git commit -F <arquivo>`.
 
 ## Caminhos
 
@@ -51,8 +67,14 @@ Estrutura relevante dentro da instalação:
 <Kenshi>/data/mods.cfg  lista de mods ativos, na ordem de load
 <Kenshi>/mods/          mods locais, em <Nome>/<Nome>.mod
 <Kenshi>/fcs.def        schema dos tipos de registro (usado pelo typecodes.py)
+<Kenshi>/save/<nome>/   um save: quick.save + milhares de .zone e .platoon
 <steamapps>/workshop/content/233860   mods do Workshop
 ```
+
+**Ordem de load: o FIM da lista tem prioridade** (verificado; há descrição de
+mod na Steam afirmando o contrário, e está errada). A mesclagem é **por campo**,
+não por registro: um mod que só grava `max num attack slots` sobrescreve apenas
+esse campo.
 
 ## Relação com o KenshiCoop
 

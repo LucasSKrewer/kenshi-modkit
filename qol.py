@@ -20,6 +20,7 @@ import sys
 
 import caminhos as loc
 import kenshimod as km
+import ordemload as ol
 
 NOME = "Smooth Sands"
 
@@ -72,65 +73,15 @@ CABECALHO_DESCONHECIDO = 1535115
 
 def arquivos_de_partida():
     """os arquivos cujos valores servem de base para os multiplicadores"""
-    arquivos = list(loc.arquivos_base())
     if not USAR_ORDEM_ATIVA:
-        return arquivos
-    import conflitos
-    for c in conflitos.ordem_real():
-        nome = os.path.basename(c)
-        if nome == f"{NOME}.mod" or nome in SUBSTITUIDOS:
-            continue
-        arquivos.append(c)
-    return arquivos
+        return list(loc.arquivos_base())
+    return ol.arquivos(excluir={f"{NOME}.mod", *SUBSTITUIDOS})
 
 
-def indexar_base(arquivos=None):
-    """strid -> (registro com os campos MESCLADOS, arquivo de origem)
-
-    Mesclar é obrigatório: os arquivos de `data/` se sobrepõem e cada um grava
-    só o que altera. Ficar com a última versão dá campo faltando -- o
-    `GLOBAL CONSTANTS` do Newwworld.mod, por exemplo, não repete
-    `max num attack slots`, e procurar lá devolve None. O jogo mescla campo a
-    campo; aqui é o mesmo.
-    """
-    idx = {}
-    for c in (arquivos if arquivos is not None else loc.arquivos_base()):
-        arq = os.path.basename(c)
-        for rec in km.ler(c)["records"]:
-            anterior = idx.get(rec["strid"])
-            if anterior is None:
-                copia = dict(rec)
-                for secao, _, _ in km.SECOES:
-                    copia[secao] = list(rec[secao])
-                copia["extra"] = [(cat, list(it)) for cat, it in rec["extra"]]
-                idx[rec["strid"]] = (copia, arq)   # arq = ORIGEM do registro
-                continue
-            alvo = anterior[0]
-            for secao, _, _ in km.SECOES:
-                atual = {k: v for k, v in alvo[secao]}
-                atual.update({k: v for k, v in rec[secao]})
-                alvo[secao] = list(atual.items())
-            cats = {cat: it for cat, it in alvo["extra"]}
-            cats.update({cat: list(it) for cat, it in rec["extra"]})
-            alvo["extra"] = list(cats.items())
-    return idx
-
-
-def modificacao(base_rec):
-    """registro vazio que MODIFICA um da base: sem campo nenhum ainda"""
-    rec = {
-        "instance_count": 0,
-        "typecode": base_rec["typecode"],
-        "id": 0,
-        "name": base_rec["name"],
-        "strid": base_rec["strid"],
-        "mod_data_type": -2147483647,
-        "extra": [],
-        "instances": [],
-    }
-    for secao, _, _ in km.SECOES:
-        rec[secao] = []
-    return rec
+# a visão efetiva do jogo (índice mesclado, registro de modificação, cabeçalho)
+# vive em ordemload.py, compartilhada com os outros geradores
+indexar_base = ol.indexar
+modificacao = ol.modificacao
 
 
 def gerar():

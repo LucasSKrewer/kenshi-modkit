@@ -56,6 +56,8 @@ de novo jogo.
 | `typecodes.py` | levanta o mapa de typecodes correlacionando registros com o `fcs.def` |
 | `typecodes_save.py` | identifica os typecodes de runtime, que só existem em save |
 | `qol.py` | gera um mod de qualidade de vida a partir dos números declarados no topo do arquivo |
+| `recruta.py` | cria um recruta único contratável em bar, clonando um que já funciona |
+| `ordemload.py` | a visão efetiva do jogo: registros com campos mesclados na ordem de load |
 | `savediff.py` | compara dois saves e mostra o que mudou no mundo (só leitura) |
 | `teste_ingame.py` | gera um mod que edita **e** cria registro, para validar no jogo |
 | `pesquisa/` | as sondas da engenharia reversa ([método](pesquisa/LEIA.md)) |
